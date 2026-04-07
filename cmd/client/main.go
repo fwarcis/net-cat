@@ -20,8 +20,7 @@ func main() {
 
 	go WaitForKeyboardInterrupt()
 
-	// conn, err := net.Dial("tcp", AddressFromConfigOrArgs())
-	conn, err := net.Dial("tcp", os.Args[1])
+	conn, err := net.Dial("tcp", AddressFromConfigOrArgs())
 	if err != nil {
 		log.Fatalln(err.Error())
 	}

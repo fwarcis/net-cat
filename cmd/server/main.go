@@ -46,24 +46,22 @@ func main() {
 		log.Println(err.Error())
 		return
 	}
-	history, err := InitHistory()
-	if err != nil {
-		log.Println(err.Error())
-	}
-	connUsers := list.New()
+	connCount := 0
+	regedUsers := list.New()
 	for {
 		conn, err := listnr.Accept()
 		if err != nil {
 			log.Println(err.Error())
 			continue
 		}
-		if connUsers.Len() >= 10 {
+		if connCount >= 10 {
 			err = conn.Close()
 			if err != nil {
 				log.Println(err.Error())
 			}
 			continue
 		}
+		connCount++
 
 		go func() {
 			defer func() {
@@ -80,12 +78,20 @@ func main() {
 				log.Println(err.Error())
 				return
 			}
-			userElem := connUsers.PushBack(user)
-			defer connUsers.Remove(userElem)
-			defer sharing.NotifyLeft(connUsers, userElem, history)
+			userElem := regedUsers.PushBack(user)
+			defer regedUsers.Remove(userElem)
 
+			history, err := OpenHistory()
+			if err != nil {
+				log.Println(err.Error())
+			}
+			defer sharing.NotifyLeft(regedUsers, userElem, history)
 			err = history.Receive(func(text string) bool {
-				err = user.Get(text)
+				if text == "" {
+					return true
+				}
+
+				err = user.Get(text + "\n")
 				if err != nil {
 					log.Println(err.Error())
 				}
@@ -95,9 +101,9 @@ func main() {
 				log.Println(err.Error())
 			}
 
-			sharing.NotifyJoined(connUsers, userElem, history)
+			sharing.NotifyJoined(regedUsers, userElem, history)
 
-			err = sharing.SendMessages(connUsers, userElem, &lnRecvr, history)
+			err = sharing.SendMessages(regedUsers, userElem, &lnRecvr, history)
 			if err != nil {
 				log.Println(err.Error())
 			}
@@ -113,7 +119,7 @@ func WelcomeMessage() (string, error) {
 	return "Welcome to TCP-Chat!\n\n" + string(logo), nil
 }
 
-func InitHistory() (*history.History, error) {
+func OpenHistory() (*history.History, error) {
 	historyFile, err := os.OpenFile(
 		"assets/server/chat-history.txt",
 		os.O_APPEND|os.O_RDWR|os.O_CREATE,

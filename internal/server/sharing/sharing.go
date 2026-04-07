@@ -9,12 +9,12 @@ import (
 )
 
 func NotifyLeft(
-	connUsers *list.List,
+	regedUsers *list.List,
 	userElem *list.Element,
 	history *history.History,
 ) {
 	senderUser := userElem.Value.(*users.User)
-	for u := connUsers.Front(); u != nil; u = u.Next() {
+	for u := regedUsers.Front(); u != nil; u = u.Next() {
 		if u == userElem {
 			continue
 		}
@@ -25,16 +25,17 @@ func NotifyLeft(
 		_ = recvrUser.Get("")
 		_ = recvrUser.SendMessage(recvrUser, "")
 	}
+	_ = history.Get("")
 	_ = senderUser.NotifyLeft(history)
 }
 
 func NotifyJoined(
-	connUsers *list.List,
+	regedUsers *list.List,
 	userElem *list.Element,
 	history *history.History,
 ) {
 	senderUser := userElem.Value.(*users.User)
-	for u := connUsers.Front(); u != nil; u = u.Next() {
+	for u := regedUsers.Front(); u != nil; u = u.Next() {
 		if u == userElem {
 			continue
 		}
@@ -45,11 +46,12 @@ func NotifyJoined(
 		_ = recvrUser.Get("")
 		_ = recvrUser.SendMessage(recvrUser, "")
 	}
+	_ = history.Get("")
 	_ = senderUser.NotifyJoined(history)
 }
 
 func SendMessages(
-	connUsers *list.List,
+	regedUsers *list.List,
 	userElem *list.Element,
 	recvr *comm.LineReceiver,
 	history *history.History,
@@ -64,7 +66,7 @@ func SendMessages(
 			return true
 		}
 
-		for u := connUsers.Front(); u != nil; u = u.Next() {
+		for u := regedUsers.Front(); u != nil; u = u.Next() {
 			if u == userElem {
 				continue
 			}
@@ -74,8 +76,8 @@ func SendMessages(
 			_ = senderUser.SendMessage(recvrUser, text+"\n")
 			_ = recvrUser.SendMessage(recvrUser, "")
 		}
-
-		_ = senderUser.SendMessage(history, text+"\n")
+		_ = history.Get("")
+		_ = senderUser.SendMessage(history, text)
 
 		return true
 	})

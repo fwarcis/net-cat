@@ -3,6 +3,7 @@ package users
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"netcat/internal/common/comm"
 )
@@ -17,7 +18,8 @@ type User struct {
 }
 
 func (u *User) SendMessage(getter TextGetter, msg string) error {
-	return getter.Get(fmt.Sprintf("[%s][%s]:%s", "", u.Name, msg))
+	now := time.Now().UTC().Format(time.DateTime)
+	return getter.Get(fmt.Sprintf("[%s][%s]:%s", now, u.Name, msg))
 }
 
 func (u *User) NotifyJoined(getter TextGetter) error {
