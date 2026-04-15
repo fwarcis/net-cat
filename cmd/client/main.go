@@ -46,12 +46,7 @@ func main() {
 
 func ReceiveAndPrintln(scanr bufio.Scanner, isFinished *bool) {
 	for scanr.Scan() {
-		text := scanr.Text()
-		if text == "" {
-			fmt.Print("\n")
-		} else {
-			fmt.Print(text)
-		}
+		fmt.Print(scanr.Text() + "\n")
 	}
 
 	*isFinished = true
