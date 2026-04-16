@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
@@ -20,14 +21,21 @@ func main() {
 
 	go WaitForKeyboardInterrupt()
 
-	conn, err := net.Dial("tcp", AddressFromConfigOrArgs())
+	// addr, err := AddressFromConfigOrArgs()
+	// if err != nil {
+	// 	log.Println(err.Error())
+	// 	return
+	// }
+	conn, err := net.Dial("tcp", os.Args[1])
+	// conn, err := net.Dial("tcp, addr)
 	if err != nil {
-		log.Fatalln(err.Error())
+		log.Println(err.Error())
+		return
 	}
 	defer func() {
 		err := conn.Close()
 		if err != nil {
-			log.Fatalln(err.Error())
+			log.Println(err.Error())
 		}
 	}()
 
@@ -45,8 +53,11 @@ func main() {
 }
 
 func ReceiveAndPrintln(scanr bufio.Scanner, isFinished *bool) {
+	if scanr.Scan() {
+		fmt.Print(scanr.Text())
+	}
 	for scanr.Scan() {
-		fmt.Print(scanr.Text() + "\n")
+		fmt.Print("\n" + scanr.Text())
 	}
 
 	*isFinished = true
@@ -75,7 +86,7 @@ func InputAndRetrieve(w bufio.Writer, isFinished *bool) {
 	}
 }
 
-func AddressFromConfigOrArgs() string {
+func AddressFromConfigOrArgs() (string, error) {
 	cfg := conf.NewDefaultConfig()
 
 	host := *flags.TextVar("host", &cfg.Host, "")
@@ -85,21 +96,21 @@ func AddressFromConfigOrArgs() string {
 	isPortSet := flags.IsSet("port")
 
 	if flag.NArg() > 2 {
-		log.Fatalln("nc $IP $port")
+		return "", errors.New("nc $IP $port")
 	}
 	if flag.NArg() >= 1 && !isHostSet {
 		err := host.UnmarshalText([]byte(flag.Arg(0)))
 		if err != nil {
-			log.Fatalln(err.Error())
+			return "", err
 		}
 	}
 	if flag.NArg() == 2 && !isPortSet {
 		err := port.UnmarshalText([]byte(flag.Arg(1)))
 		if err != nil {
-			log.Fatalln(err.Error())
+			return "", err
 		}
 	}
-	return host.String() + ":" + port.String()
+	return host.String() + ":" + port.String(), nil
 }
 
 func WaitForKeyboardInterrupt() {
@@ -107,6 +118,6 @@ func WaitForKeyboardInterrupt() {
 	signal.Notify(sigCh, os.Interrupt)
 	go func() {
 		<-sigCh
-		os.Exit(130)
+		os.Exit(0)
 	}()
 }

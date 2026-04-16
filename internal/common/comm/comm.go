@@ -2,7 +2,7 @@ package comm
 
 import (
 	"bufio"
-	"errors"
+	"io"
 )
 
 type Sender interface {
@@ -10,22 +10,39 @@ type Sender interface {
 }
 
 type LineReceiver struct {
-	Scanner *bufio.Scanner
+	Scanner   *bufio.Scanner
+	hasNoMore bool
 }
 
-func (r *LineReceiver) Receive(before func(), yield func(ln string) bool) error {
-	if before == nil {
-		before = func() {}
-	}
-
-	for {
-		before()
-
-		if !r.Scanner.Scan() || !yield(r.Scanner.Text()) {
-			break
+func (r *LineReceiver) Receive(
+	beforeScan func(),
+	afterScan func(ln string) bool,
+) {
+	if beforeScan == nil {
+		for {
+			r.hasNoMore = !r.Scanner.Scan()
+			if r.hasNoMore || !afterScan(r.Scanner.Text()) {
+				return
+			}
+		}
+	} else {
+		for {
+			beforeScan()
+			r.hasNoMore = !r.Scanner.Scan()
+			if r.hasNoMore || !afterScan(r.Scanner.Text()) {
+				return
+			}
 		}
 	}
-	return r.Scanner.Err()
+}
+
+// bufio.Scanner.Err() or io.EOF
+func (r *LineReceiver) Err() error {
+	scanrErr := r.Scanner.Err()
+	if r.hasNoMore && scanrErr == nil {
+		return io.EOF
+	}
+	return scanrErr
 }
 
 type LineSender struct {
@@ -37,26 +54,5 @@ func (s *LineSender) Send(str string) error {
 	if err != nil {
 		return err
 	}
-
-	err = s.Writer.Flush()
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-type LineSenderWithHistory struct {
-	Sender Sender
-
-	HistorySender   *LineSender
-	HistoryReceiver *LineReceiver
-}
-
-func (s *LineSenderWithHistory) Send(str string) error {
-	err := s.HistorySender.Send(str)
-	return errors.Join(err, s.Sender.Send(str))
-}
-
-func (s *LineSenderWithHistory) ReadAllHistory(yield func(string) bool) error {
-	return s.HistoryReceiver.Receive(nil, yield)
+	return s.Writer.Flush()
 }

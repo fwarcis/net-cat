@@ -4,14 +4,29 @@ import (
 	"container/list"
 
 	"netcat/internal/common/comm"
+	"netcat/internal/common/errs"
 	"netcat/internal/server/history"
 	"netcat/internal/server/users"
 )
 
+func SendHistory(hist *history.History, user *users.User) error {
+	var userMsgErr error
+	hist.Receive(nil, func(ln string) bool {
+		if ln == "" {
+			return true
+		}
+
+		userMsgErr = user.Get(ln)
+		return !errs.IsEOFLike(userMsgErr)
+	})
+	_ = hist.Err()
+	return userMsgErr
+}
+
 func NotifyLeft(
 	regedUsers *list.List,
 	userElem *list.Element,
-	history *history.History,
+	hist *history.History,
 ) {
 	senderUser := userElem.Value.(*users.User)
 	for u := regedUsers.Front(); u != nil; u = u.Next() {
@@ -20,19 +35,17 @@ func NotifyLeft(
 		}
 
 		recvrUser := u.Value.(*users.User)
-		_ = recvrUser.Get("")
 		_ = senderUser.NotifyLeft(recvrUser)
-		_ = recvrUser.Get("")
-		_ = recvrUser.SendMessage(recvrUser, "")
+		_ = recvrUser.GetPrompt()
 	}
-	_ = history.Get("")
-	_ = senderUser.NotifyLeft(history)
+	_ = senderUser.NotifyLeft(hist)
+	_ = hist.Err()
 }
 
 func NotifyJoined(
 	regedUsers *list.List,
 	userElem *list.Element,
-	history *history.History,
+	hist *history.History,
 ) {
 	senderUser := userElem.Value.(*users.User)
 	for u := regedUsers.Front(); u != nil; u = u.Next() {
@@ -41,44 +54,46 @@ func NotifyJoined(
 		}
 
 		recvrUser := u.Value.(*users.User)
-		_ = recvrUser.Get("")
 		_ = senderUser.NotifyJoined(recvrUser)
-		_ = recvrUser.Get("")
-		_ = recvrUser.SendMessage(recvrUser, "")
+		_ = recvrUser.GetPrompt()
 	}
-	_ = history.Get("")
-	_ = senderUser.NotifyJoined(history)
+	_ = senderUser.NotifyJoined(hist)
+	_ = hist.Err()
 }
 
-func SendMessages(
+func StreamMessages(
 	regedUsers *list.List,
-	userElem *list.Element,
+	senderUserElem *list.Element,
 	recvr *comm.LineReceiver,
-	history *history.History,
+	hist *history.History,
 ) error {
-	senderUser := userElem.Value.(*users.User)
+	senderUser := senderUserElem.Value.(*users.User)
 
+	// _ = senderUser.BackCarriageAfterLF()
 	before := func() {
-		_ = senderUser.SendMessage(senderUser, "")
+		_ = senderUser.GetPrompt()
 	}
-	return recvr.Receive(before, func(text string) bool {
-		if text == "" {
+	recvr.Receive(before, func(ln string) bool {
+		_ = senderUser.BackCarriageAfterLF()
+		if ln == "" {
 			return true
 		}
 
-		for u := regedUsers.Front(); u != nil; u = u.Next() {
-			if u == userElem {
+		for uElem := regedUsers.Front(); uElem != nil; uElem = uElem.Next() {
+			if uElem == senderUserElem {
 				continue
 			}
 
-			recvrUser := u.Value.(*users.User)
-			_ = recvrUser.Get("")
-			_ = senderUser.SendMessage(recvrUser, text+"\n")
-			_ = recvrUser.SendMessage(recvrUser, "")
+			go func() {
+				recvrUser := uElem.Value.(*users.User)
+				_ = senderUser.SendPromptedMessage(recvrUser, ln)
+				_ = recvrUser.GetPrompt()
+			}()
 		}
-		_ = history.Get("")
-		_ = senderUser.SendMessage(history, text)
+		_ = senderUser.SendPromptedMessage(hist, ln)
+		_ = hist.Err()
 
 		return true
 	})
+	return recvr.Err()
 }

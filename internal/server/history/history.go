@@ -13,6 +13,13 @@ func (h *History) Get(text string) error {
 	return h.Sender.Send(text)
 }
 
-func (h *History) Receive(yield func(string) bool) error {
-	return h.Receiver.Receive(nil, yield)
+func (h *History) Receive(
+	beforeScan func(),
+	afterScan func(ln string) bool,
+) {
+	h.Receiver.Receive(beforeScan, afterScan)
+}
+
+func (h *History) Err() error {
+	return h.Receiver.Err()
 }
