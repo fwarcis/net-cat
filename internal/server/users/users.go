@@ -75,7 +75,9 @@ func CreateUser(
 			username = input
 			return false
 		}
-		senderErr = sender.Send(enterNameMessage)
+		senderErr = sender.Send(
+			ansi.CarriageOffset(-1, -1) +
+				enterNameMessage)
 		return senderErr == nil
 	})
 
